@@ -2,7 +2,7 @@ const express = require('express')
 const cors = require('cors')
 require('dotenv').config()
 const port = process.env.PORT || 9000
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion ,ObjectId} = require('mongodb');
 const app = express()
 
 
@@ -40,6 +40,24 @@ async function run() {
 
       res.send(result)
     })
+
+
+     // Get a single job data from db using job id
+     app.get('/job/:id', async (req, res) => {
+      const id = req.params.id
+      const query = { _id: new ObjectId(id) }
+      const result = await jobsCollection.findOne(query)
+      res.send(result)
+    })
+
+
+        // Save a bid data in db
+        app.post('/bid', async (req, res) => {
+          const bidData = req.body
+    
+          const result = await bidsCollection.insertOne(bidData)
+          res.send(result)
+        })
 
 
 
