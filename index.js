@@ -106,6 +106,25 @@ async function run() {
 
 
 
+    // get all bids for a specific job
+    app.get('/my-bids/:email',async (req,res)=>{
+      const email = req.params.email
+      const query = {'email':email}
+      const result = await bidsCollection.find(query).toArray()
+      res.send(result)
+    })
+
+
+    // get all bid requests from db for job owner
+    app.get('/bid-requests/:email', async(req,res)=>{
+      const email = req.params.email
+      const query = {'buyer.email':email}
+      const result = await bidsCollection.find(query).toArray() 
+      res.send(result)
+    })
+
+
+
     // Connect the client to the server	(optional starting in v4.7)
     // await client.connect();
     // Send a ping to confirm a successful connection
