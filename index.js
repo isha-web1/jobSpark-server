@@ -1,5 +1,6 @@
 const express = require('express')
 const cors = require('cors')
+const jwt = require('jsonwebtoken')
 require('dotenv').config()
 const port = process.env.PORT || 9000
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
@@ -33,6 +34,15 @@ async function run() {
 
     const jobsCollection = client.db('JobSpark').collection('jobs')
     const bidsCollection = client.db('JobSpark').collection('bids')
+
+     // jwt generate
+     app.post('/jwt', async (req, res) => {
+      const email = req.body
+      const token = jwt.sign(email, process.env.ACCESS_TOKEN_SECRET, {
+        expiresIn: '365d',
+      })
+      res.send({ token })
+    })
 
     // Get all jobs data from db
     app.get('/jobs', async (req, res) => {
@@ -109,7 +119,7 @@ async function run() {
     // get all bids for a specific job
     app.get('/my-bids/:email',async (req,res)=>{
       const email = req.params.email
-      const query = {'email':email}
+      const query = {email}
       const result = await bidsCollection.find(query).toArray()
       res.send(result)
     })
@@ -122,6 +132,19 @@ async function run() {
       const result = await bidsCollection.find(query).toArray() 
       res.send(result)
     })
+
+
+      // Update Bid status
+      app.patch('/bid/:id', async (req, res) => {
+        const id = req.params.id
+        const status = req.body
+        const query = { _id: new ObjectId(id) }
+        const updateDoc = {
+          $set: status,
+        }
+        const result = await bidsCollection.updateOne(query, updateDoc)
+        res.send(result)
+      })
 
 
 
