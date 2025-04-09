@@ -1,6 +1,7 @@
 const express = require('express')
 const cors = require('cors')
 const jwt = require('jsonwebtoken')
+const cookieParser = require('cookie-parser')
 require('dotenv').config()
 const port = process.env.PORT || 9000
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
@@ -18,6 +19,26 @@ const corsOptions = {
 }
 app.use(cors(corsOptions))
 app.use(express.json())
+app.use(cookieParser())
+
+
+// verify jwt middleware
+const verifyToken = (req, res, next) => {
+  const token = req.cookies?.token
+  if (!token) return res.status(401).send({ message: 'unauthorized access' })
+  if (token) {
+    jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
+      if (err) {
+        console.log(err)
+        return res.status(401).send({ message: 'unauthorized access' })
+      }
+      console.log(decoded)
+
+      req.user = decoded
+      next()
+    })
+  }
+}
 
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.qyv9war.mongodb.net/jobSpark?appName=Cluster0`;
@@ -41,7 +62,26 @@ async function run() {
       const token = jwt.sign(email, process.env.ACCESS_TOKEN_SECRET, {
         expiresIn: '365d',
       })
-      res.send({ token })
+      res
+        .cookie('token', token, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
+        })
+        .send({ success: true })
+    })
+
+
+     // Clear token on logout
+     app.get('/logout', (req, res) => {
+      res
+        .clearCookie('token', {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
+          maxAge: 0,
+        })
+        .send({ success: true })
     })
 
     // Get all jobs data from db
@@ -80,8 +120,12 @@ async function run() {
 
 
     // get all jobs posted by a specific user
-    app.get('/jobs/:email', async (req, res) => {
+    app.get('/jobs/:email', verifyToken, async (req, res) => {
+      const tokenEmail = req.user.email
       const email = req.params.email
+      if (tokenEmail !== email) {
+        return res.status(403).send({ message: 'forbidden access' })
+      }
       const query = { 'buyer.email': email }
       const result = await jobsCollection.find(query).toArray()
       res.send(result)
@@ -100,7 +144,7 @@ async function run() {
 
     
     // update a job in db
-    app.put('/job/:id', async (req, res) => {
+    app.put('/job/:id',verifyToken, async (req, res) => {
       const id = req.params.id
       const jobData = req.body
       const query = { _id: new ObjectId(id) }
@@ -117,7 +161,7 @@ async function run() {
 
 
     // get all bids for a specific job
-    app.get('/my-bids/:email',async (req,res)=>{
+    app.get('/my-bids/:email',verifyToken,async (req,res)=>{
       const email = req.params.email
       const query = {email}
       const result = await bidsCollection.find(query).toArray()
@@ -126,7 +170,7 @@ async function run() {
 
 
     // get all bid requests from db for job owner
-    app.get('/bid-requests/:email', async(req,res)=>{
+    app.get('/bid-requests/:email',verifyToken, async(req,res)=>{
       const email = req.params.email
       const query = {'buyer.email':email}
       const result = await bidsCollection.find(query).toArray() 
