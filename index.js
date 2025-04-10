@@ -105,6 +105,19 @@ async function run() {
     app.post('/bid', async (req, res) => {
       const bidData = req.body
 
+          // check if its a duplicate request
+          const query = {
+            email: bidData.email,
+            jobId: bidData.jobId,
+          }
+          const alreadyApplied = await bidsCollection.findOne(query)
+          console.log(alreadyApplied)
+          if (alreadyApplied) {
+            return res
+              .status(400)
+              .send('You have already placed a bid on this job.')
+          }
+
       const result = await bidsCollection.insertOne(bidData)
       res.send(result)
     })
@@ -189,6 +202,32 @@ async function run() {
         const result = await bidsCollection.updateOne(query, updateDoc)
         res.send(result)
       })
+
+
+       // Get all jobs data from db for pagination
+       
+    app.get('/all-jobs', async (req, res) => {
+      const size = parseInt(req.query.size)
+      const page = parseInt(req.query.page) - 1
+      const filter = req.query.filter
+      const sort = req.query.sort
+      const search = req.query.search
+      console.log(size, page)
+
+      let query = {
+        job_title: { $regex: search, $options: 'i' },
+      }
+      if (filter) query.category = filter
+      let options = {}
+      if (sort) options = { sort: { deadline: sort === 'asc' ? 1 : -1 } }
+      const result = await jobsCollection
+        .find(query, options)
+        .skip(page * size)
+        .limit(size)
+        .toArray()
+
+      res.send(result)
+    })
 
 
 
